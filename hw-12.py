@@ -10,8 +10,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans, SpectralClustering
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score
 import pygad
+
 
 # 1. Завантаження Breast Cancer Wisconsin (Diagnostic)
 # Завантаження набору даних
@@ -358,3 +359,51 @@ y_pred_test = predict_label_ga(X_test, solution)
 test_acc = accuracy_score(y_test, y_pred_test)
 
 print("Test accuracy (GA):", test_acc)
+
+
+# 9. Оцінка якості класифікаторів: Confusion Matrix + F1‑score
+
+# 1. LogisticRegression (sklearn)
+y_pred_lr = log_reg.predict(X_test)
+cm_lr = confusion_matrix(y_test, y_pred_lr)
+f1_lr = f1_score(y_test, y_pred_lr)
+
+print("=== Logistic Regression (sklearn) ===")
+print("Confusion matrix:\n", cm_lr)
+print("F1-score:", f1_lr)
+print()
+
+# 2. Full-batch GD
+cm_full = confusion_matrix(y_test, y_pred_full)
+f1_full = f1_score(y_test, y_pred_full)
+
+print("=== Full-batch GD ===")
+print("Confusion matrix:\n", cm_full)
+print("F1-score:", f1_full)
+print()
+
+# 3. SGD
+cm_sgd = confusion_matrix(y_test, y_pred_sgd)
+f1_sgd = f1_score(y_test, y_pred_sgd)
+
+print("=== SGD ===")
+print("Confusion matrix:\n", cm_sgd)
+print("F1-score:", f1_sgd)
+print()
+
+# 4. Mini-batch GD
+cm_mb = confusion_matrix(y_test, y_pred_mb)
+f1_mb = f1_score(y_test, y_pred_mb)
+
+print("=== Mini-batch GD ===")
+print("Confusion matrix:\n", cm_mb)
+print("F1-score:", f1_mb)
+print()
+
+# 5. Genetic Algorithm (GA)
+cm_ga = confusion_matrix(y_test, y_pred_test)
+f1_ga = f1_score(y_test, y_pred_test)
+
+print("=== Genetic Algorithm (GA) ===")
+print("Confusion matrix:\n", cm_ga)
+print("F1-score:", f1_ga)
