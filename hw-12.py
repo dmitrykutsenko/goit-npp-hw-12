@@ -11,7 +11,7 @@ from sklearn.cluster import KMeans, SpectralClustering
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
-
+import pygad
 
 # 1. Завантаження Breast Cancer Wisconsin (Diagnostic)
 # Завантаження набору даних
@@ -180,3 +180,181 @@ report = classification_report(y_test, y_pred)
 print("Accuracy:", acc)
 print("Confusion matrix:\n", cm)
 print("Classification report:\n", report)
+
+
+# 7.1. Підготовка: train/test
+# X_scaled, y вже є з попередніх кроків
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 7.2. Базові функції для логістичної регресії
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+def predict_proba(X, w, b):
+    return sigmoid(X @ w + b)
+
+def predict_label(X, w, b, threshold=0.5):
+    return (predict_proba(X, w, b) >= threshold).astype(int)
+
+def logistic_loss(X, y, w, b):
+    p = predict_proba(X, w, b)
+    eps = 1e-9
+    return -np.mean(y * np.log(p + eps) + (1 - y) * np.log(1 - p + eps))
+
+# 7.3. Різні методи спуску
+
+# 7.3.1. Full-batch gradient descent
+def train_gd_full(X, y, lr=0.1, n_epochs=500):
+    n_samples, n_features = X.shape
+    w = np.zeros(n_features)
+    b = 0.0
+
+    for epoch in range(n_epochs):
+        p = predict_proba(X, w, b)
+        error = p - y
+
+        grad_w = X.T @ error / n_samples
+        grad_b = np.mean(error)
+
+        w -= lr * grad_w
+        b -= lr * grad_b
+
+    return w, b
+
+w_full, b_full = train_gd_full(X_train, y_train, lr=0.1, n_epochs=500)
+y_pred_full = predict_label(X_test, w_full, b_full)
+acc_full = accuracy_score(y_test, y_pred_full)
+print("Full-batch GD accuracy:", acc_full)
+
+# 7.3.2. Stochastic gradient descent (SGD)
+def train_gd_sgd(X, y, lr=0.01, n_epochs=20):
+    n_samples, n_features = X.shape
+    w = np.zeros(n_features)
+    b = 0.0
+
+    rng = np.random.default_rng(42)
+
+    for epoch in range(n_epochs):
+        indices = rng.permutation(n_samples)
+        for i in indices:
+            xi = X[i:i+1]
+            yi = y[i:i+1]
+
+            p = predict_proba(xi, w, b)
+            error = p - yi
+
+            grad_w = xi.T @ error
+            grad_b = np.mean(error)
+
+            w -= lr * grad_w
+            b -= lr * grad_b
+
+    return w, b
+
+w_sgd, b_sgd = train_gd_sgd(X_train, y_train, lr=0.01, n_epochs=20)
+y_pred_sgd = predict_label(X_test, w_sgd, b_sgd)
+acc_sgd = accuracy_score(y_test, y_pred_sgd)
+print("SGD accuracy:", acc_sgd)
+
+# 7.3.3. Mini-batch gradient descent
+def train_gd_minibatch(X, y, lr=0.05, n_epochs=100, batch_size=32):
+    n_samples, n_features = X.shape
+    w = np.zeros(n_features)
+    b = 0.0
+
+    rng = np.random.default_rng(42)
+
+    for epoch in range(n_epochs):
+        indices = rng.permutation(n_samples)
+        X_shuffled = X[indices]
+        y_shuffled = y[indices]
+
+        for start in range(0, n_samples, batch_size):
+            end = start + batch_size
+            xb = X_shuffled[start:end]
+            yb = y_shuffled[start:end]
+
+            p = predict_proba(xb, w, b)
+            error = p - yb
+
+            grad_w = xb.T @ error / len(xb)
+            grad_b = np.mean(error)
+
+            w -= lr * grad_w
+            b -= lr * grad_b
+
+    return w, b
+
+w_mb, b_mb = train_gd_minibatch(X_train, y_train, lr=0.05, n_epochs=100, batch_size=32)
+y_pred_mb = predict_label(X_test, w_mb, b_mb)
+acc_mb = accuracy_score(y_test, y_pred_mb)
+print("Mini-batch GD accuracy:", acc_mb)
+
+
+# 8. Логістична регресія + Генетичний алгоритм (GA)
+
+# 8.1. Підготовка даних
+# X_scaled, y вже існують з попередніх кроків
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 8.2. Логістична регресія (ручні функції)
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+def predict_proba_ga(X, w):
+    return sigmoid(X @ w)
+
+def predict_label_ga(X, w):
+    return (predict_proba_ga(X, w) >= 0.5).astype(int)
+
+# 8.3. Функція пристосованості (fitness)
+#GA максимізує fitness, тому ми беремо accuracy як ціль.
+def fitness_func(ga_instance, solution, solution_idx):
+    w = solution
+    y_pred = predict_label_ga(X_train, w)
+    acc = accuracy_score(y_train, y_pred)
+    return acc
+
+# 8.4. Налаштування та запуск GA
+"""
+Використовуємо ті самі параметри, які були у минулому ДЗ про GA‑класифікатор:
+  - популяція 50
+  - 100 поколінь
+  - одноточковий кросовер
+  - мутація з невеликим відхиленням
+  - елітизм
+"""
+
+num_features = X_train.shape[1]
+
+ga = pygad.GA(
+    num_generations=100,
+    num_parents_mating=10,
+    fitness_func=fitness_func,
+    sol_per_pop=50,
+    num_genes=num_features,
+    init_range_low=-1.0,
+    init_range_high=1.0,
+    mutation_percent_genes=10,
+    mutation_type="random",
+    mutation_by_replacement=False,
+    crossover_type="single_point",
+    parent_selection_type="tournament",
+    keep_parents=2
+)
+
+ga.run()
+
+# 8.5. Отримання найкращого розв’язку
+solution, solution_fitness, solution_idx = ga.best_solution()
+print("Best fitness (train accuracy):", solution_fitness)
+
+# 8.6. Оцінка на тестовій вибірці
+y_pred_test = predict_label_ga(X_test, solution)
+test_acc = accuracy_score(y_test, y_pred_test)
+
+print("Test accuracy (GA):", test_acc)
