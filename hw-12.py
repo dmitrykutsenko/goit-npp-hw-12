@@ -1,13 +1,16 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 from sklearn.datasets import load_breast_cancer
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans, SpectralClustering
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 
 # 1. Завантаження Breast Cancer Wisconsin (Diagnostic)
@@ -53,7 +56,6 @@ plt.show()
 # 3. Виконати кластеризацію методами Спектральної кластеризації, k_means та моделі сумішей Гаусса
 
 # 3.1. Підготовка даних та масштабування
-from sklearn.preprocessing import StandardScaler
 
 # 3.1.1. Дані
 data = load_breast_cancer()
@@ -65,8 +67,6 @@ scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
 # 3.2. Кластеризація трьома методами
-from sklearn.cluster import KMeans, SpectralClustering
-from sklearn.mixture import GaussianMixture
 
 # 3.2.1. KMeans
 kmeans = KMeans(n_clusters=2, random_state=42, n_init=20)
@@ -95,8 +95,6 @@ gmm_labels = gmm.fit_predict(X_scaled)
 
     Плюс — таблиця відповідності (contingency table).
 """
-from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
-from sklearn.metrics import confusion_matrix
 
 def evaluate_clustering(labels, y_true, name):
     ari = adjusted_rand_score(y_true, labels)
@@ -114,24 +112,19 @@ evaluate_clustering(spectral_labels, y, 'Spectral Clustering')
 evaluate_clustering(gmm_labels, y, 'Gaussian Mixture')
 
 
-# 4. Зменшення розмірності даних за допомогою метода PCA
+# 4. Код для PCA та аналізу дисперсії
 
-# 4.1. Код для PCA та аналізу дисперсії
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
-import numpy as np
-
-# PCA до 2 компонент
+# 4.2. Зменшення розмірності даних за допомогою метода PCA до 2 компонент
 pca = PCA(n_components=2)
 X_pca = pca.fit_transform(X_scaled)
 
-# Частка поясненої дисперсії
+# 4.3. Частка поясненої дисперсії
 explained = pca.explained_variance_ratio_
 
 print("Explained variance ratio:", explained)
 print("Total explained variance:", explained.sum())
 
-# 4.2. Візуалізація PCA з кольорами за класами
+# 4.3. Візуалізація PCA з кольорами за класами
 plt.figure(figsize=(8,6))
 plt.scatter(
     X_pca[:, 0], X_pca[:, 1],
@@ -143,3 +136,47 @@ plt.ylabel('PC2')
 plt.title('PCA: перші дві головні компоненти')
 plt.colorbar(label='target (0=malignant, 1=benign)')
 plt.show()
+
+
+# 5. Розподіл класів у просторі PC1–PC2
+
+# Побудова діаграми
+plt.figure(figsize=(8,6))
+plt.scatter(
+    X_pca[:, 0],
+    X_pca[:, 1],
+    c=y,
+    cmap='coolwarm',
+    alpha=0.7,
+    s=40
+)
+
+plt.xlabel('PC1')
+plt.ylabel('PC2')
+plt.title('Розподіл класів у просторі перших двох головних компонент PCA')
+plt.colorbar(label='target (0 = malignant, 1 = benign)')
+plt.show()
+
+
+# 6. Логістична регресія на Breast Cancer
+
+# Train/test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# Модель логістичної регресії
+log_reg = LogisticRegression(max_iter=500, solver='lbfgs')
+log_reg.fit(X_train, y_train)
+
+# Прогнози
+y_pred = log_reg.predict(X_test)
+
+# Оцінка
+acc = accuracy_score(y_test, y_pred)
+cm = confusion_matrix(y_test, y_pred)
+report = classification_report(y_test, y_pred)
+
+print("Accuracy:", acc)
+print("Confusion matrix:\n", cm)
+print("Classification report:\n", report)
