@@ -137,6 +137,7 @@ plt.scatter(
     X_pca[:, 0], X_pca[:, 1],
     c=y, cmap='coolwarm', alpha=0.7, s=40
 )
+
 plt.xlabel('PC1')
 plt.ylabel('PC2')
 plt.title('PCA: перші дві головні компоненти')
